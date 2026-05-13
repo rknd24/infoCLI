@@ -5,6 +5,12 @@ import requests
 from bs4 import BeautifulSoup
 import unicodedata
 from google import genai
+from rich.console import Console
+from rich.markdown import Markdown
+from rich.panel import Panel
+from rich import box  
+
+console = Console()
 
 # --- Configuration ---
 GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY")
@@ -100,7 +106,9 @@ class CLIController:
             for k, v in self.rss_map.items():
                 print(f"[{k}] {v[0]}")
             
-            cat_choice = input("\nSelect Category (q: quit): ").strip().lower()
+            raw_choice = input("\nSelect Category(q:終了):")
+            cat_choice = unicodedata.normalize("NFKC",raw_choice).strip().lower()
+
             if cat_choice == 'q': 
                 break
             if cat_choice not in self.rss_map:
@@ -116,8 +124,8 @@ class CLIController:
     def search_loop(self, root: ET.Element):
         while True:
             print("\n" + "-"*40)
-            keyword_raw = input("Search Keyword [Enter: latest / b: back / q: quit]: ").strip()
-            keyword = unicodedata.normalize('NFKC', keyword_raw).lower()
+            keyword_raw = input("Search Keyword [Enter: 最新情報 / b: 戻る / q: 終了]: ").strip()
+            keyword = unicodedata.normalize('NFKC', keyword_raw).strip().lower()
 
             if keyword == 'q': 
                 exit()
@@ -143,9 +151,16 @@ class CLIController:
 
     def article_select_loop(self, news_list: list):
         while True:
-            choice = input(f"\nSelect Article (1-{len(news_list)}) / [Enter: back]: ").strip()
-            if not choice: 
+            raw_choice = input(f"\nSelect Article (1-{len(news_list)}) / [b: 戻る / q: 終了]: ")
+            choice = unicodedata.normalize('NFKC', raw_choice).strip().lower()
+    
+            
+            if choice == 'q':
+                exit()
+            if choice == 'b':
                 break 
+            if not choice:
+                continue
 
             if not choice.isdigit() or not (1 <= int(choice) <= len(news_list)):
                 print("[Error] Invalid selection.")
@@ -157,13 +172,26 @@ class CLIController:
             raw_text = self.fetcher.scrape_article(target['link'])
             report = self.analyzer.analyze(raw_text)
             
-            print("\n" + "="*50)
-            print(report)
+            md_text = Markdown(report)
+
+            console.print(Panel(md_text,title="Analyze",border_style="cyan",box=box.ASCII))
             print("="*50)
             print(f"URL: {target['link']}")
-            break
+            
+            while True:
+                raw_action = input("\n[b: 記事選択に戻る / q: 終了]: ")
+                action = unicodedata.normalize('NFKC', raw_action).strip().lower()
+
+                if action == 'q':
+                    exit()
+                elif action == 'b':
+                    break
+                elif action =="":
+                    continue
+                else:
+                    print("[Error] Invalid selection.")
+            
 
 if __name__ == "__main__":
     app = CLIController(GOOGLE_API_KEY)
     app.run()
-            
